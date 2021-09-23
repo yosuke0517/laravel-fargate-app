@@ -3,3 +3,10 @@
 
 # Docker Compose
 .env
+
+/backend/node_modules
+/backend/public/css
+/backend/public/js
+/backend/public/hot
+/backend/public/mix-manifest.json
+/backend/public/storage
