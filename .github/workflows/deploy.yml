@@ -19,7 +19,7 @@ jobs:
 
     steps:
       - name: Configure aws credentials for prod
-        if: github.ref == 'refs/heads/main'
+        # if: github.ref == 'refs/heads/main'
         # github actions用に用意されたアクション
         uses: aws-actions/configure-aws-credentials@v1
         with: # gtihub actionsに引数が必要な場合はwithで指定する
