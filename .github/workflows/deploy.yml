@@ -19,7 +19,6 @@ jobs:
 
     steps:
       - name: Configure aws credentials for prod
-                - name: Set env vars for prod
        # 以下のようにブランチに応じて環境を分けることができる
        # if: github.ref == 'refs/heads/main'
        # run: echo "ENV_NAME=prod" >> $GITHUB_ENV
