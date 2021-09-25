@@ -27,5 +27,7 @@ RUN apt-get update && \
 
 COPY ./infra/docker/php/php-fpm.d/zzz-www.conf /usr/local/etc/php-fpm.d/zzz-www.conf
 COPY ./infra/docker/php/php.ini /usr/local/etc/php/php.ini
+# アプリケーションコードのコピー （backendディレクトリ配下の書き込みでエラーが発生しないよう--chownオプションでオーナーとグループを変更している
+COPY --chown=www-data:www-data ./backend /work/backend
 
 WORKDIR /work/backend
