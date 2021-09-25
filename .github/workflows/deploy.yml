@@ -15,13 +15,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - Configure aws credentials for prod
-        if: github.ref == 'refs/heads/feature/push_images_to_ecr'
-        uses: aws-actions/configure-aws-credentials@v1 # github actions用に用意されたアクション
-        with: # gtihub actionsに引数が必要な場合はwithで指定する
-          aws-access-key-id: ${{ secrets.PROD_AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.PROD_AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
-          role-to-assume: ${{ secrets.PROD_AWS_ASSUME_ROLE_ARN }}
-          role-duration-seconds: 1800
-
+      - name: Configure aws credentials for prod
+          if: github.ref == 'refs/heads/main'
+          uses: aws-actions/configure-aws-credentials@v1 # github actions用に用意されたアクション
+          with: # gtihub actionsに引数が必要な場合はwithで指定する
+            aws-access-key-id: ${{ secrets.PROD_AWS_ACCESS_KEY_ID }}
+            aws-secret-access-key: ${{ secrets.PROD_AWS_SECRET_ACCESS_KEY }}
+            aws-region: ${{ env.AWS_REGION }}
+            role-to-assume: ${{ secrets.PROD_AWS_ASSUME_ROLE_ARN }}
+            role-duration-seconds: 1800
