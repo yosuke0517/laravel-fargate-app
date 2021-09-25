@@ -39,8 +39,9 @@ jobs:
         if: github.ref == 'refs/heads/main'
         run: echo "ENV_NAME=prod" >> $GITHUB_ENV
 
-      - uses: actions/checkout@v2
-      - run: docker-compose up -d --build app web
+      - name: Checkout src with app, web
+        uses: actions/checkout@v2
+        run: docker-compose up -d --build app web
 
       - name: Cache composer # キャッシュ処理
         id: cache-composer
@@ -48,7 +49,7 @@ jobs:
         with:
           path: backend/vendor
           key: composer-v1-${{ hashFiles('backend/composer.lock') }} # versionはつけたほうが良い
-      - run: docker-compose exec -T app composer install -n --prefer-dist --no-dev
+        run: docker-compose exec -T app composer install -n --prefer-dist --no-dev
         # outputsの参照方法steps.{そのステップのid}.outputs.{output#の名前}
         if: ${{ !steps.cache-composer.outputs.cache-hit }}  # 論理演算子（!）使っているから${}使う。outputs.cache-hitにはキャッシュヒットしたかどうかが論理値が入る
 
@@ -65,7 +66,8 @@ jobs:
       - run: docker-compose exec -T web npm run prod
 
       # ecrへのログイン
-      - uses: aws-actions/amazon-ecr-login@v1
+      - name: Login on Ecr
+        uses: aws-actions/amazon-ecr-login@v1
         id: amazon-ecr-login
 
       # nginx imageのbuild・push
