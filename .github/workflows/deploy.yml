@@ -19,7 +19,14 @@ jobs:
 
     steps:
       - name: Configure aws credentials for prod
-        # if: github.ref == 'refs/heads/main'
+                - name: Set env vars for prod
+       # 以下のようにブランチに応じて環境を分けることができる
+       # if: github.ref == 'refs/heads/main'
+       # run: echo "ENV_NAME=prod" >> $GITHUB_ENV
+       #        - name: Set env vars for dev
+       # if: github.ref == 'refs/heads/develop'
+       # run: echo "ENV_NAME=dev" >> $GITHUB_ENV
+        run: echo "ENV_NAME=prod" >> $GITHUB_ENV # step間でも共有できるように
         uses: aws-actions/configure-aws-credentials@v1 # github actions用に用意されたアクション
         with: # gtihub actionsに引数が必要な場合はwithで指定する
           aws-access-key-id: ${{ secrets.PROD_AWS_ACCESS_KEY_ID }}
@@ -27,3 +34,72 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
           role-to-assume: ${{ secrets.PROD_AWS_ASSUME_ROLE_ARN }} # assume roleするiam roleのarnを指定する
           role-duration-seconds: 1800 # assumeの一時的な有効期限
+
+      - name: Set env vars for prod
+        if: github.ref == 'refs/heads/main'
+        run: echo "ENV_NAME=prod" >> $GITHUB_ENV
+
+      - uses: actions/checkout@v2
+      - run: docker-compose up -d --build app web
+
+      - name: Cache composer # キャッシュ処理
+        id: cache-composer
+        uses: actions/cache@v2
+        with:
+          path: backend/vendor
+          key: composer-v1-${{ hashFiles('backend/composer.lock') }} # versionはつけたほうが良い
+      - run: docker-compose exec -T app composer install -n --prefer-dist --no-dev
+        # outputsの参照方法steps.{そのステップのid}.outputs.{output#の名前}
+        if: ${{ !steps.cache-composer.outputs.cache-hit }}  # 論理演算子（!）使っているから${}使う。outputs.cache-hitにはキャッシュヒットしたかどうかが論理値が入る
+
+      - name: Cache npm
+        id: cache-npm-ci
+        uses: actions/cache@v2
+        with:
+          path: backend/node_modules
+          key: npm-v1-${{ hashFiles('backend/package-lock.json') }} # フロントのキャッシュを保存
+
+      - run: docker-compose exec -T web npm ci
+        if: ${{ !steps.cache-npm-ci.outputs.cache-hit }} # キャッシュがなければinstallする
+      # 本番用に圧縮
+      - run: docker-compose exec -T web npm run prod
+
+      # ecrへのログイン
+      - uses: aws-actions/amazon-ecr-login@v1
+        id: amazon-ecr-login
+
+      # nginx imageのbuild・push
+      - name: Push nginx image to ecr
+        env:
+          DOCKER_BUILDKIT: 1
+          ECR_REGISTRY: ${{ steps.amazon-ecr-login.outputs.registry }} # step: amazon-ecr-loginの結果を使う
+          ECR_REPOSITORY: ${{ env.SYSTEM_NAME }}-${{ env.ENV_NAME }}-${{ env.SERVICE_NAME }}-nginx
+          # \で見た目改行（1行のコマンド）
+          # ECR にプッシュ済みの最新イメージをビルドのキャッシュに指定することでビルド時間の短縮が見込める。
+          # --cache-from オプションに指定してキャッシュとして利⽤するイメージは、--build-arg BUILDKIT_INLINE_CACHE=1が必要
+        run: |
+          docker build \
+            --cache-from=$ECR_REGISTRY/$ECR_REPOSITORY:latest --build-arg BUILDKIT_INLINE_CACHE=1 . \
+            -f infra/docker/nginx/Dockerfile \
+            -t $ECR_REGISTRY/$ECR_REPOSITORY:latest \
+            -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+        # アプリケーションコードのbuild, ecrへのpush
+      - name: Push php image to ecr
+        env:
+          DOCKER_BUILDKIT: 1
+          ECR_REGISTRY: ${{ steps.amazon-ecr-login.outputs.registry }}
+          ECR_REPOSITORY: ${{ env.SYSTEM_NAME }}-${{ env.ENV_NAME }}-${{ env.SERVICE_NAME }}-php
+        run: |
+          docker build \
+            --cache-from=$ECR_REGISTRY/$ECR_REPOSITORY:latest --build-arg BUILDKIT_INLINE_CACHE=1 . \
+            -f infra/docker/php/Dockerfile \
+            -t $ECR_REGISTRY/$ECR_REPOSITORY:latest \
+            -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+
+
