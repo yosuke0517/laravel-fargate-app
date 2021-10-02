@@ -65,6 +65,13 @@ services:
       - MYSQL_USER=${DB_USER:-phper}
       - MYSQL_PASSWORD=${DB_PASS:-secret}
       - MYSQL_ROOT_PASSWORD=${DB_PASS:-secret}
+      - SESSION_DRIVER=${SESSION_DRIVER:-redis}
+      - SESSION_LIFETIME=${SESSION_LIFETIME:-120}
+      - REDIS_HOST=cache
+      - REDIS_PASSWORD=null
+      - REDIS_PORT=6379
+  cache:
+    image: redis:6.2.4-alpine
 networks:
   default:
     ipam:
