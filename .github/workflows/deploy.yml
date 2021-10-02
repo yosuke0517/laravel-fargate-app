@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - feature/create_db
 
 env:
   AWS_REGION: ap-northeast-1
@@ -18,7 +19,7 @@ jobs:
 
     steps:
       - name: Configure aws credentials for prod
-        if: github.ref == 'refs/heads/main'
+        # if: github.ref == 'refs/heads/main'
         # github actions用に用意されたアクション
         uses: aws-actions/configure-aws-credentials@v1
         with: # gtihub actionsに引数が必要な場合はwithで指定する
@@ -30,7 +31,7 @@ jobs:
 
       - name: Set env vars for prod
         # GitHubActions で使⽤される環境変数を設定(envでの設定は本stepでしか使えないので使い分け）
-        if: github.ref == 'refs/heads/main'
+        # if: github.ref == 'refs/heads/main'
         run: |
           echo "ENV_NAME=prod" >> $GITHUB_ENV
           echo "VPC_CIDR=172.31.0.0/16" >> $GITHUB_ENV
