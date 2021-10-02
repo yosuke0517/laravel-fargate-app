@@ -112,6 +112,32 @@ jobs:
         uses: kayac/ecspresso@v0
         with:
           version: v1.5.3
+      # タスク定義の登録のみ行う（後続でDBマグレーションとWebローリングアップデートの2つの処理を行う関係）
+      - name: Register task definition
+        run: ecspresso register --config config_$ENV_NAME.yaml
+        working-directory: ./ecspresso
+
+      - name: Migrate database
+        # ecspresso run: マイグレーションやバッチ処理で使用することが多い
+        # watch-container: どのコンテナの終了を待つかを指定する
+        # overrides: 指定した内容でタスクの動作を上書きする
+        # nginx解説: nginx コンテナのベースイメージである「nginx:1.20-alpine」のコマンド(CMD) は、
+        # 「["nginx", "-g", "daemon off;"]」です。これにより、nginx のプロセスが起動してnginxコンテナも起動し続けますが、
+        # 今回これを「["nginx", "-v"]」に上書きしています。その結果、nginx コンテナはバージョン表⽰を⾏った後、停⽌します。
+        # DB マイグレーションを⾏うにあたり、nginx コンテナは停⽌していて構いませんので、nginx コンテナを停⽌させら
+        # れるような適当なコマンドで上書きしています。
+        # php解説: php コンテナは、タスク定義ファイルのcommand に「["sh", "scripts/deploy.sh"]」を
+        # 指定しています。このdeploy.sh では、最後にphp-fpm を実⾏しています。
+        # これにより、PHP-FPM のプロセスが起動してphp コンテナも起動し続けますが、今回
+        # これを「["sh", "scripts/deploy.sh"] から「["php", "artisan", "migrate", "--force"]」へと
+        # 上書きしています。その結果、php コンテナはDB マイグレーションを⾏った後、停⽌します。
+        run: |
+          ecspresso run --config config_$ENV_NAME.yaml \
+            --latest-task-definition \
+            --watch-container=php \
+            --overrides='{"containerOverrides":[{"name":"nginx", "command":["nginx", "-v"]},{"name":"php", "command":["php", "artisan", "migrate", "--force"]}]}'
+        working-directory: ./ecspresso
+
       - name: Deploy to ecs
         run: ecspresso deploy --config config_$ENV_NAME.yaml
         working-directory: ./ecspresso
